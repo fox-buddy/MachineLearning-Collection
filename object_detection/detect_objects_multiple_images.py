@@ -1,6 +1,7 @@
 from ultralytics import YOLO
 import cv2
-
+import shutil
+import os
 import glob
 
 
@@ -15,7 +16,7 @@ def check_found_objects(results):
         # print("Found class Names: ", class_names)
 
         cls_ids = boxes.cls.cpu().numpy().astype(int) if boxes else []
-        print(cls_ids)
+    
 
         # Counting per Detected Class
         count_obj = {}
@@ -26,8 +27,42 @@ def check_found_objects(results):
             else:
                 count_obj[f"{val_cls_id}"] = 1
 
-        return {"boxes": boxes, "classnames": class_names, "foundclasses": count_obj}
+        return {"boxes": boxes, "classnames": class_names, "foundclasses": count_obj, "classids": cls_ids}
         
+
+def extract_crops_from_image(boxes, source_image, class_ids, class_names, save):
+    crops = []
+    for i, (xyxy, conf_val) in enumerate(zip(boxes.xyxy.cpu().numpy(), boxes.conf.cpu().numpy())):
+        x1, y1, x2, y2 = map(int, xyxy)
+
+        # Fallback to image boundaries
+        h, w = source_image.shape[:2]
+        x1, y1 = max(0, x1), max(0, y1)
+        x2, y2 = min(w - 1, x2), min(h - 1, y2)
+
+        crop = source_image[y1:y2, x1:x2].copy()
+        crops.append({
+            "index": i,
+            "class_id": class_ids[i],
+            "class_name": class_names[int(class_ids[i])],
+            "confidence": float(conf_val),
+            "bbox_xyxy": (x1, y1, x2, y2),
+            "image": crop
+        })
+
+        if(save):
+            out_name = f"crop_{i}_{class_names[int(class_ids[i])]}_{conf_val:.2f}.png"
+            cv2.imwrite(f"./extracted-crops/{out_name}", crop)
+
+
+def delete_destination_directory():
+    shutil.rmtree("./extracted-crops")
+    os.mkdir("./extracted-crops")
+
+
+delete_destination_directory()
+
+
 
 
 # Loading pretrained yolo model
@@ -43,7 +78,7 @@ for image_path_idx, image_path_val in enumerate(image_list):
         break
 
     results = model(image_path_val, conf=0.25)
-    current_work_image = cv2.imread("bus.jpg")
+    current_work_image = cv2.imread(image_path_val)
 
     if current_work_image is None:
         print("Source Image not found");
@@ -58,32 +93,4 @@ for image_path_idx, image_path_val in enumerate(image_list):
     for class_id, count_amount in found_in_results["foundclasses"].items():
             print(f"{found_in_results["classnames"][int(class_id)]}: {count_amount}")
 
-            
-# # Enumerate Results (one result per image)
-
-    
-#     # Enumerate boxes xyxy
-#     crops = []
-#     for i, (xyxy, conf_val) in enumerate(zip(boxes.xyxy.cpu().numpy(), boxes.conf.cpu().numpy())):
-#         x1, y1, x2, y2 = map(int, xyxy)
-
-#         # Fallback to image boundaries
-#         h, w = source_image.shape[:2]
-#         x1, y1 = max(0, x1), max(0, y1)
-#         x2, y2 = min(w - 1, x2), min(h - 1, y2)
-
-#         crop = source_image[y1:y2, x1:x2].copy()
-#         crops.append({
-#             "index": i,
-#             "class_id": cls_ids[i],
-#             "class_name": class_names[int(cls_ids[i])],
-#             "confidence": float(conf_val),
-#             "bbox_xyxy": (x1, y1, x2, y2),
-#             "image": crop
-#         })
-
-#         # save crop (optional, useful for OCR debugging)
-#         out_name = f"crop_{i}_{class_names[int(cls_ids[i])]}_{conf_val:.2f}.png"
-#         cv2.imwrite(f"./extracted-crops/{out_name}", crop)
-
-#     print(f"Saved {len(crops)} crops as crop_*.png")
+    extract_crops_from_image(found_in_results["boxes"], current_work_image, found_in_results["classids"], found_in_results["classnames"], True)
