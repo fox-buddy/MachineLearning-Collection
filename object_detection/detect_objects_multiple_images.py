@@ -60,10 +60,11 @@ def delete_destination_directory():
     os.mkdir("./extracted-crops")
 
 
+
+
+
+
 delete_destination_directory()
-
-
-
 
 # Loading pretrained yolo model
 model = YOLO("yolov8n.pt")
@@ -74,8 +75,8 @@ image_list = glob.glob(directory)
 print(image_list)
 
 for image_path_idx, image_path_val in enumerate(image_list):
-    if(image_path_idx > 1):
-        break
+    # if(image_path_idx > 1):
+    #     break
 
     results = model(image_path_val, conf=0.25)
     current_work_image = cv2.imread(image_path_val)
