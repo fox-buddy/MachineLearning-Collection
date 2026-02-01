@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 path_to_read = "./LicensePlateImages/*"
 file_list = images_to_progress = glob.glob(path_to_read)
 
-test_file = file_list[2]
+test_file = file_list[3]
 
 print(test_file)
 
